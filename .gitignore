@@ -10,6 +10,9 @@
 **/*.idea
 **/.externalToolBuilders
 **/test-output
+**/config.py
+**/config.pyc
+**/*.pyc
 
 /target
 /build

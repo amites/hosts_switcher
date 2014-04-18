@@ -5,18 +5,24 @@ import gtk
 import re
 import os
 import window_profile
+import config
 
 WINDOW_TITLE = "Hosts Switcher"
 
 ptn_hosts_filename = re.compile(r'^(.+)\.hosts$')
 
-HOSTS_BACKUP_FOLDER = "/home/danshan/nutstore/hosts_backup"
-HOSTS_FILE = "/etc/hosts"
-
 
 class HostsSwitcher:
     def __init__(self):
+
         """create a new window"""
+
+        # make hosts back folder
+        if not os.path.exists(config.HOSTS_BACKUP_FOLDER):
+            os.makedirs(config.HOSTS_BACKUP_FOLDER)
+
+        self.systray = None
+
         # we create a top level window and we set some parameters on it
         self.window_add_profile = window_profile.WindowProfile()
         self.window_add_profile.connect("create_profile", self.create_profile)
@@ -44,6 +50,7 @@ class HostsSwitcher:
         self.panel_main.pack_start(panel_right, True, True, 5)
 
         self.window.add(self.panel_main)
+        self.setup_systray()
         self.window.show_all()
 
     def build_left_panel(self):
@@ -96,13 +103,16 @@ class HostsSwitcher:
         panel_right.pack_start(sw, True, True, 5)
 
         btn_apply = gtk.Button("Save")
+        btn_hide = gtk.Button("Hide")
 
-        btn_apply.connect("clicked", self.on_save_hosts)
+        btn_apply.connect("clicked", self.click_save_hosts)
+        btn_hide.connect("clicked", self.click_hide_window)
 
         btnbox = gtk.HButtonBox()
         btnbox.set_layout(gtk.BUTTONBOX_END)
 
         btnbox.add(btn_apply)
+        btnbox.add(btn_hide)
         panel_right.pack_start(btnbox, False, False, 5)
 
         return panel_right
@@ -111,7 +121,7 @@ class HostsSwitcher:
         """create the model - a ListStore"""
         self.store_profile.clear()
 
-        file_list = os.listdir(HOSTS_BACKUP_FOLDER)
+        file_list = os.listdir(config.HOSTS_BACKUP_FOLDER)
         for file in file_list:
             matcher = ptn_hosts_filename.match(file)
             if matcher:
@@ -165,25 +175,13 @@ class HostsSwitcher:
 
         self.build_hosts()
 
-    def on_save_hosts(self, button):
-        buffer = self.text_host.get_buffer()
-        content = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter())
-
-        selection = self.treeview_profile.get_selection()
-        (model, tree_iter) = selection.get_selected()
-        profile = model.get_value(tree_iter, 0)
-
-        file_path = self.gen_profile_path(profile)
-        self.write_file(file_path, content, append=False)
-        self.build_hosts()
-
     def build_hosts(self):
         profile_actived = []
         for row in self.store_profile:
             if "√" == row[1]:
                 profile_actived.append(row[0])
 
-        hosts_filename = HOSTS_BACKUP_FOLDER + "/hosts.tmp"
+        hosts_filename = config.HOSTS_BACKUP_FOLDER + "/hosts.tmp"
         hosts_content = ""
         for profile in profile_actived:
             file_path = self.gen_profile_path(profile)
@@ -195,7 +193,7 @@ class HostsSwitcher:
                              + "\n"
 
         self.write_file(hosts_filename, hosts_content, append=False)
-        self.rename_file(hosts_filename, HOSTS_FILE + ".bak")
+        self.rename_file(hosts_filename, config.HOSTS_FILE + ".bak")
 
     def refresh_profiles(self):
         self.create_model()
@@ -291,6 +289,21 @@ class HostsSwitcher:
         profile = model.get_value(tree_iter, 0)
         self.delete_profile(profile)
 
+    def click_save_hosts(self, button):
+        buffer = self.text_host.get_buffer()
+        content = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter())
+
+        selection = self.treeview_profile.get_selection()
+        (model, tree_iter) = selection.get_selected()
+        profile = model.get_value(tree_iter, 0)
+
+        file_path = self.gen_profile_path(profile)
+        self.write_file(file_path, content, append=False)
+        self.build_hosts()
+
+    def click_hide_window(self, button):
+        self.window.hide()
+
     def on_change_profile(self, selection):
         (model, tree_iter) = selection.get_selected()
         if type(tree_iter) is not gtk.TreeIter:
@@ -303,7 +316,36 @@ class HostsSwitcher:
         buffer.set_text(content)
 
     def gen_profile_path(self, profile_name):
-        return HOSTS_BACKUP_FOLDER + "/" + profile_name + ".hosts"
+        return config.HOSTS_BACKUP_FOLDER + "/" + profile_name + ".hosts"
+
+    # systray
+
+    def show_hide_window(self, widget):
+        if not self.window.get_property('visible'):
+            self.window.show_all()
+            self.window.activate()
+
+    def setup_systray(self):
+        self.systray = gtk.StatusIcon()
+        self.systray.set_from_file('icon.png')
+        self.systray.connect("activate", self.show_hide_window)
+        self.systray.connect("popup-menu", self.systray_popup)
+        self.systray.set_tooltip("Hide")
+        self.systray.set_visible(True)
+
+    def systray_popup(self, statusicon, button, activate_time):
+        popup_menu = gtk.Menu()
+        restore_item = gtk.MenuItem("Show window")
+        restore_item.connect("activate", self.show_hide_window)
+        popup_menu.append(restore_item)
+
+        quit_item = gtk.ImageMenuItem(gtk.STOCK_QUIT)
+        quit_item.connect("activate", self.destroy)
+        popup_menu.append(quit_item)
+
+        popup_menu.show_all()
+        time = gtk.get_current_event_time()
+        popup_menu.popup(None, None, None, 0, time)
 
     @staticmethod
     def main():
@@ -312,9 +354,6 @@ class HostsSwitcher:
 
 if __name__ == "__main__":
 
-    # make hosts back folder
-    if not os.path.exists(HOSTS_BACKUP_FOLDER):
-        os.makedirs(HOSTS_BACKUP_FOLDER)
 
     main_window = HostsSwitcher()
     main_window.main()

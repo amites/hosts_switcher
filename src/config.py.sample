@@ -1,0 +1,7 @@
+#!/usr/bin/python
+# coding=utf-8
+
+# folder for all the hosts profile files
+HOSTS_BACKUP_FOLDER = "/home/danshan/nutstore/hosts_backup"
+# hosts file path in the system
+HOSTS_FILE = "/etc/hosts"
