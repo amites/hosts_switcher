@@ -4,6 +4,7 @@
 import gtk
 import re
 import os
+import window_profile
 
 WINDOW_TITLE = "Hosts Switcher"
 
@@ -12,12 +13,15 @@ ptn_hosts_filename = re.compile(r'^(.+)\.hosts$')
 HOSTS_BACKUP_FOLDER = "/home/danshan/nutstore/hosts_backup"
 HOSTS_FILE = "/etc/hosts"
 
-class HostsSwitcher:
 
+class HostsSwitcher:
     def __init__(self):
-        '''create a new window'''
+        """create a new window"""
         # we create a top level window and we set some parameters on it
-        self.treeview_profiles = gtk.TreeView()
+        self.window_add_profile = window_profile.WindowProfile()
+        self.window_add_profile.connect("create_profile", self.create_profile)
+
+        self.treeview_profile = gtk.TreeView()
         self.text_host = gtk.TextView()
         self.store_profile = gtk.ListStore(str, str)
 
@@ -50,23 +54,34 @@ class HostsSwitcher:
 
         # create a TreeView object which will work with our model (ListStore)
         store = self.create_model()
-        self.treeview_profiles.set_model(store)
-        self.treeview_profiles.set_rules_hint(True)
+        self.treeview_profile.set_model(store)
+        self.treeview_profile.set_rules_hint(True)
         # create the columns
         self.create_columns()
-        profile_selection = self.treeview_profiles.get_selection()
+        profile_selection = self.treeview_profile.get_selection()
         profile_selection.set_mode(gtk.SELECTION_SINGLE)
         profile_selection.connect("changed", self.on_change_profile)
-        self.treeview_profiles.connect("row-activated", self.on_active_profile)
+        self.treeview_profile.connect("row-activated", self.on_active_profile)
 
         # add the TreeView to the scrolled window
         # create a scrollable window and integrate it into the vbox
         sw = gtk.ScrolledWindow()
         sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
         sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        sw.add(self.treeview_profiles)
-
+        sw.add(self.treeview_profile)
         panel_left.pack_start(sw, True, True, 5)
+
+        btn_create = gtk.Button("Create")
+        btn_delete = gtk.Button("Delete")
+
+        btn_create.connect("clicked", self.click_create_profile)
+        btn_delete.connect("clicked", self.click_delete_profile)
+
+        btnbox = gtk.HButtonBox()
+        btnbox.set_layout(gtk.BUTTONBOX_END)
+        btnbox.add(btn_create)
+        btnbox.add(btn_delete)
+        panel_left.pack_start(btnbox, False, False, 5)
 
         return panel_left
 
@@ -93,7 +108,8 @@ class HostsSwitcher:
         return panel_right
 
     def create_model(self):
-        '''create the model - a ListStore'''
+        """create the model - a ListStore"""
+        self.store_profile.clear()
 
         file_list = os.listdir(HOSTS_BACKUP_FOLDER)
         for file in file_list:
@@ -106,7 +122,7 @@ class HostsSwitcher:
         return self.store_profile
 
     def create_columns(self):
-        ''' create the columns '''
+        """ create the columns """
         # CellRendererText = an object that renders text into a gtk.TreeView cell
         renderer_text = gtk.CellRendererText()
         # column = a visible column in a gtk.TreeView widget
@@ -116,27 +132,17 @@ class HostsSwitcher:
         # the logical column ID of the model to sort
         column.set_sort_column_id(0)
         # append the column
-        self.treeview_profiles.append_column(column)
+        self.treeview_profile.append_column(column)
 
         column = gtk.TreeViewColumn("", renderer_text, text=1)
         column.set_sort_column_id(1)
         column.set_max_width(200)
-        self.treeview_profiles.append_column(column)
+        self.treeview_profile.append_column(column)
 
     def destroy(self, widget, data=None):
-        '''close the window and quit'''
+        """close the window and quit"""
         gtk.main_quit()
         return False
-
-    def on_change_profile(self, selection):
-        (model, tree_iter) = selection.get_selected()
-        profile = model.get_value(tree_iter, 0)
-
-        hosts_file = open(HOSTS_BACKUP_FOLDER + "/" + profile + ".hosts")
-        content = hosts_file.read()
-        hosts_file.close()
-        buffer = self.text_host.get_buffer()
-        buffer.set_text(content)
 
     def on_active_profile(self, treeview, path, view_column):
 
@@ -163,15 +169,12 @@ class HostsSwitcher:
         buffer = self.text_host.get_buffer()
         content = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter())
 
-        selection = self.treeview_profiles.get_selection()
+        selection = self.treeview_profile.get_selection()
         (model, tree_iter) = selection.get_selected()
         profile = model.get_value(tree_iter, 0)
 
-        hosts_file = open(HOSTS_BACKUP_FOLDER + "/" + profile + ".hosts", "w")
-        hosts_file.write(content)
-        hosts_file.close()
-
-        print "save " + profile
+        file_path = self.gen_profile_path(profile)
+        self.write_file(file_path, content, append=False)
         self.build_hosts()
 
     def build_hosts(self):
@@ -181,24 +184,131 @@ class HostsSwitcher:
                 profile_actived.append(row[0])
 
         hosts_filename = HOSTS_BACKUP_FOLDER + "/hosts.tmp"
-        hosts_file = open(hosts_filename, "w")
+        hosts_content = ""
         for profile in profile_actived:
-            filename = HOSTS_BACKUP_FOLDER + "/" + profile + ".hosts"
-            toread = open(filename)
-            content = toread.read()
-            toread.close()
-            hosts_file.write("# ==== " + profile)
-            hosts_file.write("\n")
-            hosts_file.write(content)
-            hosts_file.write("\n")
-            hosts_file.write("# ==== " + profile)
-            hosts_file.write("\n")
+            file_path = self.gen_profile_path(profile)
+            content = self.read_file(file_path)
 
-        hosts_file.close()
-        os.rename(hosts_filename, HOSTS_FILE + ".bak")
+            hosts_content += "# ==== " + profile \
+                             + "\n" + content + "\n" \
+                             + "# ==== " + profile \
+                             + "\n"
 
-    def main(self):
+        self.write_file(hosts_filename, hosts_content, append=False)
+        self.rename_file(hosts_filename, HOSTS_FILE + ".bak")
+
+    def refresh_profiles(self):
+        self.create_model()
+
+    def show_error_dialog(self, error_msg):
+        dialog = gtk.MessageDialog(self.window, gtk.DIALOG_DESTROY_WITH_PARENT,
+                                   gtk.MESSAGE_ERROR, gtk.BUTTONS_CLOSE, error_msg)
+        dialog.run()
+        dialog.destroy()
+
+    def show_info_dialog(self, info_msg):
+        dialog = gtk.MessageDialog(self.window, gtk.DIALOG_DESTROY_WITH_PARENT,
+                                   gtk.MESSAGE_QUESTION, gtk.BUTTONS_OK_CANCEL, info_msg)
+        dialog.set_title("Prompt")
+        result = (dialog.run() == gtk.RESPONSE_OK)
+        dialog.destroy()
+        return result
+
+    # file opeation
+
+    def read_file(self, file_path):
+        """read file"""
+        if not os.path.exists(file_path):
+            self.show_error_dialog("File not exists: " + file_path)
+            return None
+
+        file_object = open(file_path)
+        try:
+            print "load " + file_path
+            return file_object.read()
+        except (IOError, OSError) as e:
+            self.show_error_dialog(e.strerror)
+        finally:
+            file_object.close()
+
+    def write_file(self, file_path, content, append=False):
+        file_object = open(file_path, "w+" if append else "w")
+        try:
+            print "write " + file_path
+            file_object.write(content)
+        except (IOError, OSError) as e:
+            self.show_error_dialog(e.strerror)
+        finally:
+            file_object.close()
+
+    def rename_file(self, filename_from, filename_to):
+        try:
+            print "rename " + filename_from + " to " + filename_to
+            os.rename(filename_from, filename_to)
+        except (IOError, OSError) as e:
+            self.show_error_dialog(e.strerror)
+
+    def remove_file(self, filename):
+        try:
+            print "delete " + filename
+            os.remove(filename)
+        except (IOError, OSError) as e:
+            self.show_error_dialog(e.strerror)
+
+    def create_profile(self, profile_window):
+        profile_name = profile_window.get_profile_name()
+        if not profile_name and not profile_name.strip():
+            self.show_error_dialog("Profile name cannot be empty.")
+            return
+
+        profile_path = self.gen_profile_path(profile_name)
+        if os.path.exists(profile_path):
+            self.show_error_dialog("Host profile already exists: " + profile_path)
+            return
+        else:
+            self.write_file(profile_path, "", append=False)
+            self.refresh_profiles()
+
+    def delete_profile(self, profile_name):
+        profile_path = self.gen_profile_path(profile_name)
+        if self.show_info_dialog("Are you sure to delete " + profile_name + "?") :
+            self.remove_file(profile_path)
+        self.refresh_profiles()
+
+    # button callback
+
+    def click_create_profile(self, button):
+        """click Create Profile button"""
+        self.window_add_profile.show()
+
+    def click_delete_profile(self, button):
+        """click Delete Profile button"""
+        selection = self.treeview_profile.get_selection()
+        (model, tree_iter) = selection.get_selected()
+        if type(tree_iter) is not gtk.TreeIter:
+            self.show_error_dialog("Choose a profile to be deleted.")
+            return
+        profile = model.get_value(tree_iter, 0)
+        self.delete_profile(profile)
+
+    def on_change_profile(self, selection):
+        (model, tree_iter) = selection.get_selected()
+        if type(tree_iter) is not gtk.TreeIter:
+            return
+        profile = model.get_value(tree_iter, 0)
+
+        file_path = self.gen_profile_path(profile)
+        content = self.read_file(file_path)
+        buffer = self.text_host.get_buffer()
+        buffer.set_text(content)
+
+    def gen_profile_path(self, profile_name):
+        return HOSTS_BACKUP_FOLDER + "/" + profile_name + ".hosts"
+
+    @staticmethod
+    def main():
         gtk.main()
+
 
 if __name__ == "__main__":
 
@@ -208,4 +318,3 @@ if __name__ == "__main__":
 
     main_window = HostsSwitcher()
     main_window.main()
-
