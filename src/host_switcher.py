@@ -10,14 +10,15 @@ import config
 WINDOW_TITLE = "Hosts Switcher"
 
 ptn_hosts_filename = re.compile(r'^(.+)\.hosts$')
+ptn_profile_name = re.compile(r'^# ==== (.+?)$')
 
 
 class HostsSwitcher:
     def __init__(self):
 
-        """create a new window"""
+        """ create the main window """
 
-        # make hosts back folder
+        # make hosts backup folder
         if not os.path.exists(config.HOSTS_BACKUP_FOLDER):
             os.makedirs(config.HOSTS_BACKUP_FOLDER)
 
@@ -48,6 +49,8 @@ class HostsSwitcher:
 
         panel_right = self.build_right_panel()
         self.panel_main.pack_start(panel_right, True, True, 5)
+
+        self.init_actived_profile()
 
         self.window.add(self.panel_main)
         self.setup_systray()
@@ -175,6 +178,26 @@ class HostsSwitcher:
 
         self.build_hosts()
 
+    def init_actived_profile(self):
+        """ check actived profile """
+
+        file_object = open(config.HOSTS_FILE)
+        actived = set()
+        try:
+            for line in file_object.readlines():
+                matcher = ptn_profile_name.match(line)
+                if matcher:
+                    actived.add(matcher.group(1))
+
+        except (IOError, OSError) as e:
+            self.show_error_dialog(e.strerror)
+        finally:
+            file_object.close()
+
+        for row in self.store_profile:
+            if row[0] in actived:
+                row[1] = row[1] = "√"
+
     def build_hosts(self):
         profile_actived = []
         for row in self.store_profile:
@@ -193,7 +216,7 @@ class HostsSwitcher:
                              + "\n"
 
         self.write_file(hosts_filename, hosts_content, append=False)
-        self.rename_file(hosts_filename, config.HOSTS_FILE + ".bak")
+        self.rename_file(hosts_filename, config.HOSTS_FILE)
 
     def refresh_profiles(self):
         self.create_model()
@@ -240,11 +263,18 @@ class HostsSwitcher:
             file_object.close()
 
     def rename_file(self, filename_from, filename_to):
+        from_object = open(filename_from)
+        to_object = open(filename_to, "w")
         try:
             print "rename " + filename_from + " to " + filename_to
-            os.rename(filename_from, filename_to)
+            content = from_object.read()
+            to_object.write(content)
+            # os.rename(filename_from, filename_to)
         except (IOError, OSError) as e:
             self.show_error_dialog(e.strerror)
+        finally:
+            from_object.close()
+            to_object.close()
 
     def remove_file(self, filename):
         try:
@@ -353,7 +383,6 @@ class HostsSwitcher:
 
 
 if __name__ == "__main__":
-
 
     main_window = HostsSwitcher()
     main_window.main()
