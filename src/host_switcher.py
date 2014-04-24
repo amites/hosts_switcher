@@ -220,6 +220,7 @@ class HostsSwitcher:
 
     def refresh_profiles(self):
         self.create_model()
+        self.init_actived_profile()
 
     def show_error_dialog(self, error_msg):
         dialog = gtk.MessageDialog(self.window, gtk.DIALOG_DESTROY_WITH_PARENT,
