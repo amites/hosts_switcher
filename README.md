@@ -1,19 +1,20 @@
 # hosts_switcher
 
-针对 linux 环境下没有好用的切换 hosts 文件的工具. 虽然 [Chrome](https://www.google.com/intl/zh-CN/chrome/browser/) 有 [Hosts Manager](https://chrome.google.com/webstore/detail/hosts-manager/kpfmckjjpabojdhlncnccfhkfhbmnjfi), [HostAdmin](https://chrome.google.com/webstore/detail/hostadmin/oklkidkfohahankieehkeenbillligdn) 等插件; [Firefox](http://www.firefox.com.cn/) 下面也有 [HostAdmin](https://github.com/tg123/chrome-hostadmin), 但这些插件需要重度依赖到浏览器的服务.
+Tools for switching hosts file under linux environment is not easy, though. [Chrome](https://www.google.com/chrome/) has [Hosts Manager](https://chrome.google.com/webstore/detail/hosts-manager/kpfmckjjpabojdhlncnccfhkfhbmnjfi) , [HostAdmin](https://chrome.google.com/webstore/detail/hostadmin/oklkidkfohahankieehkeenbillligdn) and other plug-ins; [Firefox](https://www.mozilla.org/en-US/firefox/new/) below have [HostAdmin](https://github.com/tg123/chrome-hostadmin) , but these plug-ins need to heavily rely on the browser service.
 
-修改 `config.py.simple` 为 `config.py` 需要配置两个地方:
 
-> HOSTS_BACKUP_FOLDER 指向本地的一个文件夹, 推荐将该文件夹使用云端备份, 比如 [Dropbox](https://www.dropbox.com/home) 或 [坚果云](https://jianguoyun.com/).
+Modify `config.py.simple` to `config.py` need to configure two places:
 
-> HOSTS_FILE 当前服务器的hosts地址, 比如 `/etc/hosts`.
+> HOSTS_BACKUP_FOLDER point to a local folder, we recommend the use of cloud backup the folder, such as [Dropbox](https://www.dropbox.com/home)  or [nuts cloud](https://jianguoyun.com/) .
+> 
+> Hosts address HOSTS_FILE current server, such as / etc / hosts .
 
-请确认当前用户对 HOSTS_FILE 具备足够的读写权限.
 
-运行程序 (支持 python 2.7)
+Make sure that the current user HOSTS_FILE have insufficient access rights.
+_You can run with `sudo` if needed._
 
-```
-python hosts_switcher.py
-```
+Run the program (supporting python 2.7)
 
-![主界面](screenshots/main_window.png)
+`python hosts_switcher.py`
+
+![Main interface](screenshots/main_window.png)
