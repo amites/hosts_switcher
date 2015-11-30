@@ -128,19 +128,24 @@ class HostsSwitcher:
         for file in file_list:
             matcher = ptn_hosts_filename.match(file)
             if matcher:
-                # store.append([matcher.group(1), "√" if host_all_active else ""])
                 self.store_profile.append([matcher.group(1), ""])
             else:
                 continue
         return self.store_profile
 
     def create_columns(self):
-        """ create the columns """
-        # CellRendererText = an object that renders text into a gtk.TreeView cell
+        """
+        create the columns
+
+        CellRendererText is an object that renders text
+            into a gtk.TreeView cell.
+
+        column = a visible column in a gtk.TreeView widget
+        param: title, cell_renderer, zero or more attribute=column pairs
+        text = 0 -> attribute values for the cell renderer from
+            column 0 in the treemodel.
+        """
         renderer_text = gtk.CellRendererText()
-        # column = a visible column in a gtk.TreeView widget
-        # param: title, cell_renderer, zero or more attribute=column pairs
-        # text = 0 -> attribute values for the cell renderer from column 0 in the treemodel
         column = gtk.TreeViewColumn("profile", renderer_text, text=0)
         # the logical column ID of the model to sort
         column.set_sort_column_id(0)
@@ -151,11 +156,6 @@ class HostsSwitcher:
         column.set_sort_column_id(1)
         column.set_max_width(200)
         self.treeview_profile.append_column(column)
-
-    def destroy(self, widget, data=None):
-        """close the window and quit"""
-        gtk.main_quit()
-        return False
 
     def on_active_profile(self, treeview, path, view_column):
 
@@ -224,13 +224,15 @@ class HostsSwitcher:
 
     def show_error_dialog(self, error_msg):
         dialog = gtk.MessageDialog(self.window, gtk.DIALOG_DESTROY_WITH_PARENT,
-                                   gtk.MESSAGE_ERROR, gtk.BUTTONS_CLOSE, error_msg)
+                                   gtk.MESSAGE_ERROR,
+                                   gtk.BUTTONS_CLOSE, error_msg)
         dialog.run()
         dialog.destroy()
 
     def show_info_dialog(self, info_msg):
         dialog = gtk.MessageDialog(self.window, gtk.DIALOG_DESTROY_WITH_PARENT,
-                                   gtk.MESSAGE_QUESTION, gtk.BUTTONS_OK_CANCEL, info_msg)
+                                   gtk.MESSAGE_QUESTION, gtk.BUTTONS_OK_CANCEL,
+                                   info_msg)
         dialog.set_title("Prompt")
         result = (dialog.run() == gtk.RESPONSE_OK)
         dialog.destroy()
@@ -239,7 +241,7 @@ class HostsSwitcher:
     # file opeation
 
     def read_file(self, file_path):
-        """read file"""
+        """read file """
         if not os.path.exists(file_path):
             self.show_error_dialog("File not exists: " + file_path)
             return None
@@ -292,7 +294,8 @@ class HostsSwitcher:
 
         profile_path = self.gen_profile_path(profile_name)
         if os.path.exists(profile_path):
-            self.show_error_dialog("Host profile already exists: " + profile_path)
+            self.show_error_dialog(
+                "Host profile already exists: " + profile_path)
             return
         else:
             self.write_file(profile_path, "", append=False)
@@ -300,7 +303,8 @@ class HostsSwitcher:
 
     def delete_profile(self, profile_name):
         profile_path = self.gen_profile_path(profile_name)
-        if self.show_info_dialog("Are you sure to delete " + profile_name + "?") :
+        if self.show_info_dialog(
+                "Are you sure to delete " + profile_name + "?"):
             self.remove_file(profile_path)
         self.refresh_profiles()
 
@@ -322,7 +326,8 @@ class HostsSwitcher:
 
     def click_save_hosts(self, button):
         buffer = self.text_host.get_buffer()
-        content = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter())
+        content = buffer.get_text(buffer.get_start_iter(),
+                                  buffer.get_end_iter())
 
         selection = self.treeview_profile.get_selection()
         (model, tree_iter) = selection.get_selected()
@@ -346,7 +351,8 @@ class HostsSwitcher:
         buffer = self.text_host.get_buffer()
         buffer.set_text(content)
 
-    def gen_profile_path(self, profile_name):
+    @staticmethod
+    def gen_profile_path(profile_name):
         return config.HOSTS_BACKUP_FOLDER + "/" + profile_name + ".hosts"
 
     # systray
@@ -357,8 +363,15 @@ class HostsSwitcher:
             self.window.activate()
 
     def setup_systray(self):
+        base_path = os.path.dirname(os.path.abspath(__file__))
+
+        # gtk.status_icon_new_from_file(
+        #     os.path.join(base_path, 'icon--22x22.png'))
+        self.window.set_icon_from_file(os.path.join(base_path, 'icon.png'))
+
         self.systray = gtk.StatusIcon()
-        self.systray.set_from_file('icon.png')
+        self.systray.set_from_file(
+            os.path.join(base_path, 'icon--22x22.png'))
         self.systray.connect("activate", self.show_hide_window)
         self.systray.connect("popup-menu", self.systray_popup)
         self.systray.set_tooltip("Hide")
@@ -377,6 +390,16 @@ class HostsSwitcher:
         popup_menu.show_all()
         time = gtk.get_current_event_time()
         popup_menu.popup(None, None, None, 0, time)
+
+    ##############################
+    # Application Static Helpers #
+    ##############################
+
+    @staticmethod
+    def destroy(widget, data=None):
+        """close the window and quit"""
+        gtk.main_quit()
+        return False
 
     @staticmethod
     def main():
